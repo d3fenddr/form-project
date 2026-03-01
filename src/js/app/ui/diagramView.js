@@ -1,302 +1,500 @@
-import { setState } from '../state.js';
-import { inspectorModal } from './inspectorModal.js';
+import { UI_SELECTORS, SCHEMA_DIAGRAM_CONFIG } from '../config/builderConfig.js';
 
-function centerOnRoot(host) {
-    const rootX = Number(host.dataset.rootX || 0);
-    const rootY = Number(host.dataset.rootY || 0);
-    if (!rootX || !rootY) {
-        return;
-    }
+function createSchemaDiagramWidget({ getSchema, onNodeClick }) {
+    const config = SCHEMA_DIAGRAM_CONFIG;
 
-    const targetLeft = rootX - host.clientWidth / 2;
-    const targetTop = rootY - host.clientHeight * 0.42;
-    const maxLeft = Math.max(0, host.scrollWidth - host.clientWidth);
-    const maxTop = Math.max(0, host.scrollHeight - host.clientHeight);
-
-    host.scrollLeft = Math.min(Math.max(0, targetLeft), maxLeft);
-    host.scrollTop = Math.min(Math.max(0, targetTop), maxTop);
-}
-
-function bindPan(host) {
-    if (!host || host.dataset.boundPan) {
-        return;
-    }
-
-    let dragging = false;
-    let startX = 0;
-    let startY = 0;
-    let startScrollLeft = 0;
-    let startScrollTop = 0;
-    let suppressClick = false;
-
-    host.addEventListener('pointerdown', (event) => {
-        if (event.button !== 0) {
-            return;
-        }
-
-        dragging = true;
-        startX = event.clientX;
-        startY = event.clientY;
-        startScrollLeft = host.scrollLeft;
-        startScrollTop = host.scrollTop;
-        suppressClick = false;
-        host.classList.add('dragging');
-        if (host.setPointerCapture) {
-            host.setPointerCapture(event.pointerId);
-        }
-    });
-
-    host.addEventListener('pointermove', (event) => {
-        if (!dragging) {
-            return;
-        }
-
-        const deltaX = event.clientX - startX;
-        const deltaY = event.clientY - startY;
-
-        if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
-            suppressClick = true;
-        }
-
-        host.scrollLeft = startScrollLeft - deltaX;
-        host.scrollTop = startScrollTop - deltaY;
-    });
-
-    const stopDragging = (event) => {
-        if (!dragging) {
-            return;
-        }
-
-        dragging = false;
-        host.classList.remove('dragging');
-        if (host.releasePointerCapture) {
-            try {
-                host.releasePointerCapture(event.pointerId);
-            } catch {
-                // ignore
-            }
-        }
+    const state = {
+        scale: 1,
+        offsetX: 0,
+        offsetY: 0,
+        contentWidth: 0,
+        contentHeight: 0,
+        isDragging: false,
+        dragStartX: 0,
+        dragStartY: 0,
+        dragOriginX: 0,
+        dragOriginY: 0,
+        bound: false,
+        hasFittedAtLeastOnce: false,
+        fitQueued: false,
+        pendingRafTransform: 0,
+        pendingResizeRaf: 0,
+        schemaSignature: '',
+        viewportGroupEl: null,
+        layoutCache: null,
+        svgMarkupCache: ''
     };
 
-    host.addEventListener('pointerup', stopDragging);
-    host.addEventListener('pointercancel', stopDragging);
-    host.addEventListener('pointerleave', stopDragging);
+    let resizeObserver = null;
 
-    host.addEventListener('click', (event) => {
-        if (!suppressClick) {
-            return;
+    function getViewport() {
+        return document.querySelector(UI_SELECTORS.schemaDiagramViewport);
+    }
+
+    function getSvg() {
+        return document.querySelector(UI_SELECTORS.schemaDiagramSvg);
+    }
+
+    function clampScale(scale) {
+        return Math.min(config.maxZoom, Math.max(config.minZoom, scale));
+    }
+
+    function safeTypeClass(type) {
+        return String(type || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '_');
+    }
+
+    function getSchemaSignature(schema) {
+        if (!schema) {
+            return '';
         }
 
-        event.preventDefault();
-        event.stopPropagation();
-        suppressClick = false;
-    }, true);
-
-    host.addEventListener('wheel', (event) => {
-        event.preventDefault();
-    }, { passive: false });
-
-    host.dataset.boundPan = 'true';
-}
-
-function collectByDepth(node, depth = 0, rows = []) {
-    if (!node) {
-        return rows;
+        return JSON.stringify(schema);
     }
 
-    if (!rows[depth]) {
-        rows[depth] = [];
+    function buildGraph(schema) {
+        const nodes = [];
+        const edges = [];
+        const rootId = '__schema_root__';
+
+        nodes.push({ id: rootId, label: schema.title || 'Форма', type: 'root', depth: 0, parentId: null });
+
+        function walk(fields, parentId, depth) {
+            (fields || []).forEach((field) => {
+                nodes.push({
+                    id: field.id,
+                    label: field.label || field.id,
+                    type: field.type || 'field',
+                    depth,
+                    parentId
+                });
+
+                edges.push({ from: parentId, to: field.id });
+
+                if (field.type === 'complex' && Array.isArray(field.fields) && field.fields.length > 0) {
+                    walk(field.fields, field.id, depth + 1);
+                }
+            });
+        }
+
+        walk(schema.fields || [], rootId, 1);
+        return { nodes, edges, rootId };
     }
 
-    rows[depth].push(node);
-    (node.children || []).forEach((child) => collectByDepth(child, depth + 1, rows));
-    return rows;
-}
+    function buildLayout(graph) {
+        const grouped = new Map();
 
-function assignPositions(root) {
-    const byDepth = collectByDepth(root);
-    const positions = new Map();
-    const verticalGap = 150;
-    const horizontalGap = 240;
-    const marginX = 100;
-    const marginY = 70;
+        graph.nodes.forEach((node) => {
+            if (!grouped.has(node.depth)) {
+                grouped.set(node.depth, []);
+            }
+            grouped.get(node.depth).push(node);
+        });
 
-    byDepth.forEach((nodes, depth) => {
-        const rowWidth = (nodes.length - 1) * horizontalGap;
-        const startX = marginX + Math.max(0, (1280 - rowWidth) / 2);
+        const levels = Array.from(grouped.keys()).sort((left, right) => left - right);
+        const positions = new Map();
 
-        nodes.forEach((node, index) => {
-            positions.set(node.id, {
-                x: startX + index * horizontalGap,
-                y: marginY + depth * verticalGap
+        levels.forEach((depth) => {
+            const row = grouped.get(depth);
+            const rowWidth = Math.max(0, (row.length - 1) * config.horizontalGap);
+            const startX = config.marginX + Math.max(0, (1200 - rowWidth) / 2);
+
+            row.forEach((node, index) => {
+                positions.set(node.id, {
+                    x: startX + index * config.horizontalGap,
+                    y: config.marginY + depth * config.verticalGap,
+                    width: config.nodeWidth,
+                    height: config.nodeHeight
+                });
             });
         });
-    });
 
-    return { positions, depthCount: byDepth.length, maxCount: Math.max(...byDepth.map((r) => r.length), 1) };
-}
+        const maxRowLength = Math.max(...Array.from(grouped.values()).map((row) => row.length), 1);
+        const depthCount = levels.length;
 
-function flattenEdges(node, edges = []) {
-    if (!node) {
-        return edges;
+        const contentWidth = Math.max(1260, maxRowLength * config.horizontalGap + config.marginX * 2);
+        const contentHeight = Math.max(620, depthCount * config.verticalGap + config.marginY * 2 + config.nodeHeight);
+
+        const nodeBounds = calculateNodeBounds(graph.nodes, positions);
+
+        return {
+            graph,
+            positions,
+            contentWidth,
+            contentHeight,
+            nodeBounds
+        };
     }
 
-    (node.children || []).forEach((child) => {
-        edges.push({ from: node.id, to: child.id });
-        flattenEdges(child, edges);
-    });
+    function calculateNodeBounds(nodes, positions) {
+        if (!nodes.length) {
+            return { minX: 0, minY: 0, maxX: 0, maxY: 0, width: 0, height: 0 };
+        }
 
-    return edges;
-}
+        let minX = Number.POSITIVE_INFINITY;
+        let minY = Number.POSITIVE_INFINITY;
+        let maxX = Number.NEGATIVE_INFINITY;
+        let maxY = Number.NEGATIVE_INFINITY;
 
-function nodeLabel(node) {
-    const name = node.name || node.kind;
-    const meta = node.kind === 'property' ? (node.valueType || 'string') : node.kind;
-    return { name, meta };
-}
+        nodes.forEach((node) => {
+            const pos = positions.get(node.id);
+            if (!pos) {
+                return;
+            }
 
-function render(state) {
-    const host = document.getElementById('diagram-canvas');
-    if (!host) {
-        return;
+            const left = pos.x - pos.width / 2;
+            const right = pos.x + pos.width / 2;
+            const top = pos.y - pos.height / 2;
+            const bottom = pos.y + pos.height / 2;
+
+            minX = Math.min(minX, left);
+            minY = Math.min(minY, top);
+            maxX = Math.max(maxX, right);
+            maxY = Math.max(maxY, bottom);
+        });
+
+        return {
+            minX,
+            minY,
+            maxX,
+            maxY,
+            width: Math.max(1, maxX - minX),
+            height: Math.max(1, maxY - minY)
+        };
     }
 
-    bindPan(host);
+    function buildSvgMarkup(layout) {
+        const defs = `
+            <defs>
+                <marker id="schemaDiagramArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#9aa7c7"></path>
+                </marker>
+            </defs>
+        `;
 
-    host.innerHTML = '';
+        const edgePaths = layout.graph.edges
+            .map((edge) => {
+                const from = layout.positions.get(edge.from);
+                const to = layout.positions.get(edge.to);
+                if (!from || !to) {
+                    return '';
+                }
 
-    const schema = state?.schema;
-    if (!schema || !schema.id) {
-        host.innerHTML = '<div class="text-muted small">No schema to display.</div>';
-        return;
+                const startX = from.x;
+                const startY = from.y + from.height / 2;
+                const endX = to.x;
+                const endY = to.y - to.height / 2;
+                const middleY = (startY + endY) / 2;
+
+                return `<path class="schema-diagram-edge" d="M ${startX} ${startY} C ${startX} ${middleY}, ${endX} ${middleY}, ${endX} ${endY}" marker-end="url(#schemaDiagramArrow)"></path>`;
+            })
+            .join('');
+
+        const nodes = layout.graph.nodes
+            .map((node) => {
+                const pos = layout.positions.get(node.id);
+                if (!pos) {
+                    return '';
+                }
+
+                const typeClass = safeTypeClass(node.type);
+                const clickableClass = node.id === layout.graph.rootId ? '' : 'is-clickable';
+                const meta = node.id === layout.graph.rootId ? 'schema' : node.type;
+
+                return `
+                    <g class="schema-diagram-node node-${typeClass} ${clickableClass}" data-node-id="${node.id}">
+                        <rect x="${pos.x - pos.width / 2}" y="${pos.y - pos.height / 2}" width="${pos.width}" height="${pos.height}" rx="10" ry="10"></rect>
+                        <text class="node-title" x="${pos.x}" y="${pos.y - 10}" text-anchor="middle">${escapeXml(node.label)}</text>
+                        <text class="node-meta" x="${pos.x}" y="${pos.y + 14}" text-anchor="middle">(${escapeXml(meta)})</text>
+                    </g>
+                `;
+            })
+            .join('');
+
+        return `${defs}<g data-layer="viewport">${edgePaths}${nodes}</g>`;
     }
 
-    const { positions, depthCount, maxCount } = assignPositions(schema);
-    const edges = flattenEdges(schema);
-
-    const width = Math.max(1400, maxCount * 250 + 180);
-    const height = Math.max(760, depthCount * 170 + 140);
-
-    const svgNs = 'http://www.w3.org/2000/svg';
-    const svg = document.createElementNS(svgNs, 'svg');
-    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
-    svg.setAttribute('class', 'diagram-svg');
-
-    const rootPos = positions.get(schema.id);
-    if (rootPos) {
-        host.dataset.rootX = String(rootPos.x);
-        host.dataset.rootY = String(rootPos.y);
-    }
-
-    const defs = document.createElementNS(svgNs, 'defs');
-    const marker = document.createElementNS(svgNs, 'marker');
-    marker.setAttribute('id', 'arrowhead');
-    marker.setAttribute('markerWidth', '8');
-    marker.setAttribute('markerHeight', '6');
-    marker.setAttribute('refX', '7');
-    marker.setAttribute('refY', '3');
-    marker.setAttribute('orient', 'auto');
-
-    const arrowPath = document.createElementNS(svgNs, 'path');
-    arrowPath.setAttribute('d', 'M0,0 L8,3 L0,6 Z');
-    arrowPath.setAttribute('fill', '#a78bcb');
-
-    marker.appendChild(arrowPath);
-    defs.appendChild(marker);
-    svg.appendChild(defs);
-
-    edges.forEach((edge) => {
-        const from = positions.get(edge.from);
-        const to = positions.get(edge.to);
-        if (!from || !to) {
+    function scheduleTransformUpdate() {
+        if (state.pendingRafTransform) {
             return;
         }
 
-        const line = document.createElementNS(svgNs, 'path');
-        const sx = from.x;
-        const sy = from.y + 36;
-        const tx = to.x;
-        const ty = to.y - 36;
-        const cy = (sy + ty) / 2;
-        line.setAttribute('d', `M ${sx} ${sy} C ${sx} ${cy}, ${tx} ${cy}, ${tx} ${ty}`);
-        line.setAttribute('class', 'diagram-edge');
-        line.setAttribute('marker-end', 'url(#arrowhead)');
-        svg.appendChild(line);
-    });
+        state.pendingRafTransform = requestAnimationFrame(() => {
+            state.pendingRafTransform = 0;
+            if (!state.viewportGroupEl) {
+                return;
+            }
 
-    const allNodes = [];
-    collectByDepth(schema).forEach((row) => row.forEach((node) => allNodes.push(node)));
+            state.viewportGroupEl.setAttribute(
+                'transform',
+                `translate(${state.offsetX.toFixed(2)} ${state.offsetY.toFixed(2)}) scale(${state.scale.toFixed(3)})`
+            );
+        });
+    }
 
-    allNodes.forEach((node) => {
-        const pos = positions.get(node.id);
-        if (!pos) {
+    function fitToView({ padding = config.fitPadding, ensureReadable = false } = {}) {
+        const viewport = getViewport();
+        const layout = state.layoutCache;
+
+        if (!viewport || !layout || !layout.nodeBounds) {
             return;
         }
 
-        const group = document.createElementNS(svgNs, 'g');
-        group.setAttribute('class', `diagram-node ${node.kind}`);
-        group.setAttribute('data-node-id', node.id);
-        group.style.cursor = 'pointer';
+        const bounds = layout.nodeBounds;
+        const viewportWidth = Math.max(1, viewport.clientWidth);
+        const viewportHeight = Math.max(1, viewport.clientHeight);
 
-        const rect = document.createElementNS(svgNs, 'rect');
-        rect.setAttribute('x', String(pos.x - 90));
-        rect.setAttribute('y', String(pos.y - 36));
-        rect.setAttribute('rx', '10');
-        rect.setAttribute('ry', '10');
-        rect.setAttribute('width', '180');
-        rect.setAttribute('height', '72');
+        const targetWidth = bounds.width * (1 + padding * 2);
+        const targetHeight = bounds.height * (1 + padding * 2);
 
-        const labels = nodeLabel(node);
+        let nextScale = Math.min(viewportWidth / targetWidth, viewportHeight / targetHeight);
+        nextScale = clampScale(nextScale);
 
-        const textName = document.createElementNS(svgNs, 'text');
-        textName.setAttribute('x', String(pos.x));
-        textName.setAttribute('y', String(pos.y - 9));
-        textName.setAttribute('text-anchor', 'middle');
-        textName.setAttribute('class', 'name');
-        textName.textContent = labels.name;
+        if (ensureReadable) {
+            nextScale = Math.max(nextScale, config.initialMinReadableZoom);
+            nextScale = clampScale(nextScale);
+        }
 
-        const textMeta = document.createElementNS(svgNs, 'text');
-        textMeta.setAttribute('x', String(pos.x));
-        textMeta.setAttribute('y', String(pos.y + 16));
-        textMeta.setAttribute('text-anchor', 'middle');
-        textMeta.setAttribute('class', 'meta');
-        textMeta.textContent = `(${labels.meta})`;
+        const centerX = bounds.minX + bounds.width / 2;
+        const centerY = bounds.minY + bounds.height / 2;
 
-        group.appendChild(rect);
-        group.appendChild(textName);
-        group.appendChild(textMeta);
-        svg.appendChild(group);
-    });
+        state.scale = nextScale;
+        state.offsetX = viewportWidth / 2 - centerX * nextScale;
+        state.offsetY = viewportHeight / 2 - centerY * nextScale;
+        scheduleTransformUpdate();
+    }
 
-    host.appendChild(svg);
+    function queueDoubleRafFit({ ensureReadable }) {
+        if (state.fitQueued) {
+            return;
+        }
 
-    if (!host.dataset.initialCentered) {
+        state.fitQueued = true;
         requestAnimationFrame(() => {
-            centerOnRoot(host);
-            host.dataset.initialCentered = 'true';
+            requestAnimationFrame(() => {
+                fitToView({ padding: config.fitPadding, ensureReadable });
+                state.fitQueued = false;
+            });
         });
     }
 
-    if (!host.dataset.boundClicks) {
-        host.addEventListener('click', (event) => {
+    function zoomBy(multiplier, centerX, centerY) {
+        const viewport = getViewport();
+        if (!viewport) {
+            return;
+        }
+
+        const oldScale = state.scale;
+        const nextScale = clampScale(oldScale * multiplier);
+        if (nextScale === oldScale) {
+            return;
+        }
+
+        const rect = viewport.getBoundingClientRect();
+        const targetX = centerX ?? rect.left + viewport.clientWidth / 2;
+        const targetY = centerY ?? rect.top + viewport.clientHeight / 2;
+
+        const localX = targetX - rect.left;
+        const localY = targetY - rect.top;
+
+        const worldX = (localX - state.offsetX) / oldScale;
+        const worldY = (localY - state.offsetY) / oldScale;
+
+        state.scale = nextScale;
+        state.offsetX = localX - worldX * nextScale;
+        state.offsetY = localY - worldY * nextScale;
+
+        scheduleTransformUpdate();
+    }
+
+    function bindResizeObserver() {
+        const viewport = getViewport();
+        if (!viewport || resizeObserver) {
+            return;
+        }
+
+        resizeObserver = new ResizeObserver(() => {
+            if (state.pendingResizeRaf) {
+                cancelAnimationFrame(state.pendingResizeRaf);
+            }
+
+            state.pendingResizeRaf = requestAnimationFrame(() => {
+                state.pendingResizeRaf = 0;
+                fitToView({ padding: config.fitPadding, ensureReadable: true });
+            });
+        });
+
+        resizeObserver.observe(viewport);
+    }
+
+    function bindEvents() {
+        if (state.bound) {
+            return;
+        }
+
+        const viewport = getViewport();
+        const svg = getSvg();
+        if (!viewport || !svg) {
+            return;
+        }
+
+        viewport.addEventListener('pointerdown', (event) => {
+            if (event.button !== 0) {
+                return;
+            }
+
+            state.isDragging = true;
+            state.dragStartX = event.clientX;
+            state.dragStartY = event.clientY;
+            state.dragOriginX = state.offsetX;
+            state.dragOriginY = state.offsetY;
+            viewport.classList.add('dragging');
+            if (viewport.setPointerCapture) {
+                viewport.setPointerCapture(event.pointerId);
+            }
+        });
+
+        viewport.addEventListener('pointermove', (event) => {
+            if (!state.isDragging) {
+                return;
+            }
+
+            const deltaX = event.clientX - state.dragStartX;
+            const deltaY = event.clientY - state.dragStartY;
+            state.offsetX = state.dragOriginX + deltaX;
+            state.offsetY = state.dragOriginY + deltaY;
+            scheduleTransformUpdate();
+        });
+
+        const stopDrag = (event) => {
+            if (!state.isDragging) {
+                return;
+            }
+
+            state.isDragging = false;
+            viewport.classList.remove('dragging');
+            if (viewport.releasePointerCapture) {
+                try {
+                    viewport.releasePointerCapture(event.pointerId);
+                } catch {
+                    // noop
+                }
+            }
+        };
+
+        viewport.addEventListener('pointerup', stopDrag);
+        viewport.addEventListener('pointercancel', stopDrag);
+        viewport.addEventListener('pointerleave', stopDrag);
+
+        viewport.addEventListener(
+            'wheel',
+            (event) => {
+                event.preventDefault();
+                const multiplier = event.deltaY < 0 ? config.wheelZoomStep : 1 / config.wheelZoomStep;
+                zoomBy(multiplier, event.clientX, event.clientY);
+            },
+            { passive: false }
+        );
+
+        document.querySelector(UI_SELECTORS.schemaDiagramZoomIn)?.addEventListener('click', () => {
+            zoomBy(config.buttonZoomStep);
+        });
+
+        document.querySelector(UI_SELECTORS.schemaDiagramZoomOut)?.addEventListener('click', () => {
+            zoomBy(1 / config.buttonZoomStep);
+        });
+
+        document.querySelector(UI_SELECTORS.schemaDiagramReset)?.addEventListener('click', () => {
+            fitToView({ padding: config.fitPadding, ensureReadable: true });
+        });
+
+        svg.addEventListener('click', (event) => {
             const target = event.target;
-            const nodeGroup = target.closest('[data-node-id]');
-            if (!nodeGroup) {
+            const node = target.closest('[data-node-id]');
+            if (!node) {
                 return;
             }
 
-            const nodeId = nodeGroup.getAttribute('data-node-id');
-            if (!nodeId) {
+            const nodeId = node.getAttribute('data-node-id');
+            if (!nodeId || nodeId === '__schema_root__') {
                 return;
             }
 
-            setState({ selectedNodeId: nodeId });
-            inspectorModal.open(nodeId);
+            if (typeof onNodeClick === 'function') {
+                onNodeClick(nodeId);
+            }
         });
-        host.dataset.boundClicks = 'true';
+
+        state.bound = true;
+        bindResizeObserver();
     }
+
+    function render() {
+        const viewport = getViewport();
+        const svg = getSvg();
+        if (!viewport || !svg) {
+            return;
+        }
+
+        bindEvents();
+
+        const schema = getSchema();
+        if (!schema) {
+            svg.innerHTML = '';
+            state.viewportGroupEl = null;
+            state.layoutCache = null;
+            state.svgMarkupCache = '';
+            state.schemaSignature = '';
+            state.hasFittedAtLeastOnce = false;
+            return;
+        }
+
+        const signature = getSchemaSignature(schema);
+        const schemaChanged = signature !== state.schemaSignature;
+
+        if (schemaChanged || !state.layoutCache) {
+            const graph = buildGraph(schema);
+            const layout = buildLayout(graph);
+
+            state.layoutCache = layout;
+            state.contentWidth = layout.contentWidth;
+            state.contentHeight = layout.contentHeight;
+            state.svgMarkupCache = buildSvgMarkup(layout);
+            state.schemaSignature = signature;
+
+            svg.setAttribute('viewBox', `0 0 ${layout.contentWidth} ${layout.contentHeight}`);
+            svg.innerHTML = state.svgMarkupCache;
+            state.viewportGroupEl = svg.querySelector('[data-layer="viewport"]');
+
+            queueDoubleRafFit({ ensureReadable: true });
+            state.hasFittedAtLeastOnce = true;
+            return;
+        }
+
+        if (!state.viewportGroupEl) {
+            state.viewportGroupEl = svg.querySelector('[data-layer="viewport"]');
+        }
+
+        if (!state.hasFittedAtLeastOnce) {
+            queueDoubleRafFit({ ensureReadable: true });
+            state.hasFittedAtLeastOnce = true;
+        } else {
+            scheduleTransformUpdate();
+        }
+    }
+
+    return {
+        render,
+        fitToView: () => fitToView({ padding: config.fitPadding, ensureReadable: true })
+    };
 }
 
-const diagramView = { render };
+function escapeXml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
 
-export { diagramView };
+export { createSchemaDiagramWidget };

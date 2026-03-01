@@ -1,111 +1,249 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Form Builder</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <title>ReceiverEngine Builder</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.32/dist/sweetalert2.min.css" rel="stylesheet">
+
     <link rel="stylesheet" href="app.css">
 </head>
 <body>
-    <div class="app-shell">
-        <header class="app-topbar d-flex align-items-center justify-content-between">
+
+    <div class="page-wrapper" id="main-wrapper" data-layout="vertical" data-navbarbg="skin6" data-sidebartype="full">
+        <header class="app-header px-3 py-2 d-flex justify-content-between align-items-center">
             <div class="d-flex align-items-center gap-3">
-                <h1 class="app-title mb-0">Query Builder</h1>
-                <span class="text-muted small">Schema designer</span>
+                <button class="btn btn-sm btn-light border" id="toggleToolboxBtn" data-bs-toggle="tooltip" title="Тулбар элементов">
+                    <i class="ti ti-layout-sidebar text-primary fs-5"></i>
+                </button>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="bg-primary text-white rounded p-1 d-flex shadow-sm"><i class="ti ti-atom fs-5"></i></span>
+                    <h5 class="mb-0 fw-bold">ReceiverEngine <span class="badge bg-primary-subtle text-primary ms-2 fs-6 fw-normal">Form Builder</span></h5>
+                </div>
             </div>
             <div class="d-flex align-items-center gap-2">
-                <button class="btn btn-light btn-sm topbar-btn" type="button">＋</button>
-                <button class="btn btn-light btn-sm topbar-btn" type="button">☰</button>
-                <button class="btn btn-light btn-sm topbar-btn" type="button">⌕</button>
+                <button class="btn btn-sm btn-light border me-3" id="toggleTreeBtn" data-bs-toggle="tooltip" title="Дерево структуры">
+                    <i class="ti ti-layout-sidebar-right text-primary fs-5"></i>
+                </button>
+                <button class="btn btn-outline-primary btn-sm" id="previewJsonBtn"><i class="ti ti-code"></i> JSON</button>
+                <button class="btn btn-primary btn-sm" id="saveTemplateBtn"><i class="ti ti-device-floppy"></i> Сохранить шаблон</button>
             </div>
         </header>
 
-        <main class="container-fluid py-3">
-            <div class="row g-3 app-columns">
-                <div class="col-xl-4 col-lg-5" id="left-panel">
-                    <section class="panel-card h-100">
-                        <div class="panel-head">
-                            <div class="row g-2 mb-2">
-                                <div class="col-6">
-                                    <label class="form-label tiny-label">Program</label>
-                                    <select class="form-select form-select-sm">
-                                        <option>CRM</option>
-                                        <option>Sales</option>
-                                    </select>
-                                </div>
-                                <div class="col-6">
-                                    <label class="form-label tiny-label">Document</label>
-                                    <select class="form-select form-select-sm">
-                                        <option>Contract</option>
-                                        <option>Application</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="d-flex gap-2 flex-wrap">
-                                <button id="add-property" class="btn btn-sm btn-outline-primary">+ Property</button>
-                                <button id="add-object" class="btn btn-sm btn-outline-secondary">+ Object</button>
-                                <button id="add-array" class="btn btn-sm btn-outline-success">+ Array</button>
-                                <button id="delete-node" class="btn btn-sm btn-outline-danger">Delete</button>
-                            </div>
-                        </div>
+        <div class="body-wrapper">
+            <div class="builder-panels-container">
 
-                        <div class="panel-body">
-                            <div id="tree-container" class="tree-container"></div>
+                <aside class="toolbox-panel card mb-0" id="toolboxSidebar">
+                    <div class="card-header bg-transparent border-bottom pt-3 pb-2">
+                        <h6 class="mb-0 fw-semibold">Элементы формы</h6>
+                    </div>
+                    <div class="card-body p-0 scrollable-panel">
+                        <div class="accordion accordion-flush" id="toolboxAccordion">
+
+                            <div class="accordion-item bg-transparent border-bottom">
+                                <h2 class="accordion-header" id="headingStd">
+                                    <button class="accordion-button bg-transparent fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseStd">
+                                        Стандартные поля
+                                    </button>
+                                </h2>
+                                <div id="collapseStd" class="accordion-collapse collapse show" data-bs-parent="#toolboxAccordion">
+                                    <div class="accordion-body p-3 pt-2">
+                                        <div class="d-flex flex-wrap gap-2">
+                                            <button class="toolbox-icon-btn" data-field-type="string" data-bs-toggle="tooltip" title="Строка (Текст)"><i class="ti ti-typography text-primary"></i></button>
+                                            <button class="toolbox-icon-btn" data-field-type="number" data-bs-toggle="tooltip" title="Число"><i class="ti ti-math-123 text-success"></i></button>
+                                            <button class="toolbox-icon-btn" data-field-type="date" data-bs-toggle="tooltip" title="Дата"><i class="ti ti-calendar text-info"></i></button>
+                                            <button class="toolbox-icon-btn" data-field-type="time" data-bs-toggle="tooltip" title="Время"><i class="ti ti-clock text-info"></i></button>
+                                            <button class="toolbox-icon-btn" data-field-type="select" data-bs-toggle="tooltip" title="Список (Select)"><i class="ti ti-list text-warning"></i></button>
+                                            <button class="toolbox-icon-btn" data-field-type="checkboxList" data-bs-toggle="tooltip" title="Множественный выбор"><i class="ti ti-checkbox text-warning"></i></button>
+                                            <button class="toolbox-icon-btn" data-field-type="boolean" data-bs-toggle="tooltip" title="Переключатель (Да/Нет)"><i class="ti ti-toggle-right text-danger"></i></button>
+                                            <button class="toolbox-icon-btn" data-field-type="complex" data-bs-toggle="tooltip" title="Комплексный объект"><i class="ti ti-box text-dark"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item bg-transparent">
+                                <h2 class="accordion-header" id="headingSys">
+                                    <button class="accordion-button collapsed bg-transparent fw-semibold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSys">
+                                        Системные (Интеграции)
+                                    </button>
+                                </h2>
+                                <div id="collapseSys" class="accordion-collapse collapse" data-bs-parent="#toolboxAccordion">
+                                    <div class="accordion-body p-3 pt-2">
+                                        <div class="d-flex flex-wrap gap-2">
+                                            <button class="toolbox-icon-btn" data-field-type="sys_dictionary" data-bs-toggle="tooltip" title="Системный словарь"><i class="ti ti-book text-secondary"></i></button>
+                                            <button class="toolbox-icon-btn" data-field-type="sys_employee" data-bs-toggle="tooltip" title="Выбор сотрудника(ов)"><i class="ti ti-users text-primary"></i></button>
+                                            <button class="toolbox-icon-btn" data-field-type="sys_org_tree" data-bs-toggle="tooltip" title="Орг. Структура"><i class="ti ti-hierarchy text-success"></i></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
-                    </section>
+                    </div>
+                </aside>
+
+                <main class="canvas-panel card mb-0 scrollable-panel">
+                    <div class="card-body p-4">
+                        <div class="rounded-4 p-4 canvas-paper">
+                            <h4 id="formTitleDisplay" class="mb-4 border-bottom pb-3 fw-bold text-body">Структура Формы</h4>
+                            <div class="row sortable-container" id="mainFormContainer"></div>
+                            <div class="text-center mt-5 text-secondary opacity-50" id="dragHint">
+                                <i class="ti ti-drag-drop fs-1"></i>
+                                <p class="mt-2 small">Перетаскивайте элементы для изменения порядка.</p>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+
+                <aside class="tree-panel card mb-0" id="treeSidebar">
+                    <div class="card-header bg-transparent border-bottom pt-3 pb-2">
+                        <h6 class="mb-0 fw-semibold">Структура объекта</h6>
+                        <small class="text-secondary">Кликните на элемент для редактирования</small>
+                    </div>
+                    <div class="card-body p-3">
+                        <div id="treeViewContainer" class="schema-tree-container scrollable-panel"></div>
+
+                        <div class="schema-diagram-section mt-3 pt-3 border-top">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <h6 class="mb-0 fw-semibold">Диаграмма структуры</h6>
+                                <div class="btn-group btn-group-sm" role="group" aria-label="Управление масштабом диаграммы">
+                                    <button type="button" class="btn btn-light border" id="schemaDiagramZoomOut" title="Уменьшить">
+                                        <i class="ti ti-zoom-out"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-light border" id="schemaDiagramReset" title="Сбросить">
+                                        <i class="ti ti-focus-centered"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-light border" id="schemaDiagramZoomIn" title="Увеличить">
+                                        <i class="ti ti-zoom-in"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="schemaDiagramViewport" class="schema-diagram-viewport">
+                                <svg id="schemaDiagramSvg" class="schema-diagram-svg" aria-label="Диаграмма структуры формы"></svg>
+                            </div>
+                            <small class="text-secondary d-block mt-2">Колесо мыши — масштаб, зажатая ЛКМ — перемещение.</small>
+                        </div>
+                    </div>
+                </aside>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="fieldConfigModal" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content rounded-4 shadow">
+                <div class="modal-header border-bottom">
+                    <h5 class="modal-title fw-semibold" id="fieldModalTitle"><i class="ti ti-settings text-primary me-2"></i>Настройка поля</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
+                <div class="modal-body p-4">
+                    <form id="fieldConfigForm">
+                        <input type="hidden" id="conf_mode" value="add">
+                        <input type="hidden" id="conf_type" value="">
+                        <input type="hidden" id="conf_original_id" value="">
+                        <input type="hidden" id="conf_target_parent_id" value="">
 
-                <div class="col-xl-4 col-lg-7" id="center-panel">
-                    <section class="panel-card h-100">
-                        <div class="panel-head d-flex align-items-center justify-content-between">
-                            <h2 class="panel-title mb-0">Form Preview</h2>
-                            <span class="badge text-bg-light border">Live</span>
+                        <h6 class="fw-bold mb-3 text-primary text-uppercase fs-2">Базовые параметры</h6>
+                        <div class="row g-3 mb-4 pb-4 border-bottom">
+                            <div class="col-md-6">
+                                <label class="form-label fw-medium">Идентификатор поля (ID) <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="conf_id" required pattern="^[a-zA-Z0-9_]+$" placeholder="напр. company_name">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-medium">Заголовок (Label) <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="conf_label" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-medium">Ширина (Колонка)</label>
+                                <select class="form-select" id="conf_col">
+                                    <option value="12">col-12 (100%)</option>
+                                    <option value="8">col-8 (66%)</option>
+                                    <option value="6" selected>col-6 (50%)</option>
+                                    <option value="4">col-4 (33%)</option>
+                                    <option value="3">col-3 (25%)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-medium">Каноническое поле</label>
+                                <select class="form-select" id="conf_canonical">
+                                    <option value="">-- Не задано --</option>
+                                    <option value="C_TAX_ID">C_TAX_ID (ИНН)</option>
+                                    <option value="C_NAME">C_NAME (Имя)</option>
+                                    <option value="C_EMAIL">C_EMAIL (Email)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end pb-1">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input border-primary" type="checkbox" id="conf_required" role="switch">
+                                    <label class="form-check-label fw-medium text-danger">Обязательное поле</label>
+                                </div>
+                            </div>
                         </div>
-                        <div class="panel-body preview-area">
-                            <div id="form-preview"></div>
+
+                        <h6 class="fw-bold mb-3 text-primary text-uppercase fs-2">Специфика: <span id="conf_type_display" class="badge bg-primary-subtle text-primary"></span></h6>
+
+                        <div class="row g-3 setting-section" data-types="string">
+                            <div class="col-md-4"><label class="form-label">Мин. длина</label><input type="number" class="form-control" id="conf_str_min"></div>
+                            <div class="col-md-4"><label class="form-label">Макс. длина</label><input type="number" class="form-control" id="conf_str_max"></div>
+                            <div class="col-md-4">
+                                <label class="form-label">Формат</label>
+                                <select class="form-select" id="conf_str_pattern">
+                                    <option value="">Произвольный текст</option>
+                                    <option value="email">Email</option>
+                                    <option value="custom">Свой Regex</option>
+                                </select>
+                            </div>
+                            <div class="col-md-12" id="conf_str_custom_wrap" style="display:none;">
+                                <label class="form-label">Regex паттерн</label>
+                                <input type="text" class="form-control" id="conf_str_custom_regex" placeholder="^[0-9]+$">
+                            </div>
                         </div>
-                    </section>
+
+                        <div class="row g-3 setting-section" data-types="number">
+                            <div class="col-md-6"><label class="form-label">Мин. значение</label><input type="number" class="form-control" id="conf_num_min"></div>
+                            <div class="col-md-6"><label class="form-label">Макс. значение</label><input type="number" class="form-control" id="conf_num_max"></div>
+                        </div>
+
+                        <div class="row g-3 setting-section" data-types="date,time">
+                            <div class="col-md-6"><label class="form-label">Мин. ограничение</label><input type="text" class="form-control" id="conf_datetime_min"></div>
+                            <div class="col-md-6"><label class="form-label">Макс. ограничение</label><input type="text" class="form-control" id="conf_datetime_max"></div>
+                        </div>
+
+                        <div class="row g-3 setting-section" data-types="select,checkboxList">
+                            <div class="col-12">
+                                <label class="form-label">Элементы списка</label>
+                                <div id="optionsBuilderContainer" class="p-3 rounded-3 bg-body-tertiary mb-3 border"></div>
+                                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3" id="addOptionBtn"><i class="ti ti-plus"></i> Добавить опцию</button>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 setting-section" data-types="sys_dictionary">
+                            <div class="col-12"><label class="form-label">Выбор словаря</label><select class="form-select" id="conf_sys_dict"><option value="regions_dict">Регионы</option><option value="status_dict">Статусы</option></select></div>
+                        </div>
+
+                        <div class="row g-3 setting-section" data-types="sys_employee,sys_org_tree">
+                            <div class="col-12"><label class="form-label">Режим выбора</label><select class="form-select" id="conf_sys_mode"><option value="single">Один (Single)</option><option value="multiple">Несколько (Multiple)</option></select></div>
+                        </div>
+                    </form>
                 </div>
-
-                <div class="col-xl-4 col-lg-12" id="right-panel">
-                    <section class="panel-card h-100">
-                        <div class="panel-head p-0">
-                            <ul class="nav nav-tabs px-3 pt-3" id="right-tabs" role="tablist">
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link active" type="button" data-bs-toggle="tab" data-bs-target="#diagram-tab">Diagram</button>
-                                </li>
-                                <li class="nav-item" role="presentation">
-                                    <button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#json-editor-tab">JSON</button>
-                                </li>
-                            </ul>
-                        </div>
-
-                        <div class="panel-body tab-content">
-                            <div class="tab-pane fade show active" id="diagram-tab">
-                                <div class="diagram-placeholder">
-                                    <div id="diagram-canvas" class="diagram-canvas"></div>
-                                </div>
-                            </div>
-                            <div class="tab-pane fade" id="json-editor-tab">
-                                <div class="d-flex justify-content-end gap-2 mb-2">
-                                    <button id="copy-json" class="btn btn-sm btn-outline-secondary">Copy</button>
-                                    <button id="import-json" class="btn btn-sm btn-outline-primary">Import</button>
-                                    <button id="export-json" class="btn btn-sm btn-outline-success">Export</button>
-                                </div>
-                                <textarea id="json-editor" class="form-control json-textarea" rows="18"></textarea>
-                            </div>
-                        </div>
-                    </section>
+                <div class="modal-footer border-top">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Отмена</button>
+                    <button type="button" class="btn btn-primary px-4" id="saveFieldBtn">Сохранить поле</button>
                 </div>
             </div>
-        </main>
+        </div>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.32/dist/sweetalert2.all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <script type="module" src="src/js/main.js"></script>
 </body>
 </html>
