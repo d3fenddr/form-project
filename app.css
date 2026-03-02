@@ -456,8 +456,22 @@ body {
     display: none;
 }
 
+.specific-inline-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    align-items: end;
+}
+
 .specific-inline-row > [class*="col-"] {
     display: block;
+    width: auto !important;
+    max-width: none !important;
+    flex: initial !important;
+}
+
+.specific-inline-row > .col-12,
+.specific-inline-row > .col-md-12 {
+    grid-column: 1 / -1;
 }
 
 .specific-inline-row .form-label {
