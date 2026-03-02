@@ -92,11 +92,17 @@ function createSchemaDiagramWidget({ getSchema, onNodeClick }) {
 
         const levels = Array.from(grouped.keys()).sort((left, right) => left - right);
         const positions = new Map();
+        const maxRowLength = Math.max(...Array.from(grouped.values()).map((row) => row.length), 1);
+        const depthCount = levels.length;
+        const maxRowWidth = Math.max(0, (maxRowLength - 1) * config.horizontalGap);
+
+        const contentWidth = Math.max(1260, maxRowWidth + config.marginX * 2 + config.nodeWidth);
+        const contentHeight = Math.max(620, depthCount * config.verticalGap + config.marginY * 2 + config.nodeHeight);
 
         levels.forEach((depth) => {
             const row = grouped.get(depth);
             const rowWidth = Math.max(0, (row.length - 1) * config.horizontalGap);
-            const startX = config.marginX + Math.max(0, (1200 - rowWidth) / 2);
+            const startX = (contentWidth - rowWidth) / 2;
 
             row.forEach((node, index) => {
                 positions.set(node.id, {
@@ -107,12 +113,6 @@ function createSchemaDiagramWidget({ getSchema, onNodeClick }) {
                 });
             });
         });
-
-        const maxRowLength = Math.max(...Array.from(grouped.values()).map((row) => row.length), 1);
-        const depthCount = levels.length;
-
-        const contentWidth = Math.max(1260, maxRowLength * config.horizontalGap + config.marginX * 2);
-        const contentHeight = Math.max(620, depthCount * config.verticalGap + config.marginY * 2 + config.nodeHeight);
 
         const nodeBounds = calculateNodeBounds(graph.nodes, positions);
 
@@ -342,6 +342,7 @@ function createSchemaDiagramWidget({ getSchema, onNodeClick }) {
                 return;
             }
 
+            event.preventDefault();
             state.isDragging = true;
             state.dragStartX = event.clientX;
             state.dragStartY = event.clientY;
@@ -358,10 +359,12 @@ function createSchemaDiagramWidget({ getSchema, onNodeClick }) {
                 return;
             }
 
+            event.preventDefault();
             const deltaX = event.clientX - state.dragStartX;
             const deltaY = event.clientY - state.dragStartY;
-            state.offsetX = state.dragOriginX + deltaX;
-            state.offsetY = state.dragOriginY + deltaY;
+            const panMultiplier = config.dragPanMultiplier || 1;
+            state.offsetX = state.dragOriginX + deltaX * panMultiplier;
+            state.offsetY = state.dragOriginY + deltaY * panMultiplier;
             scheduleTransformUpdate();
         });
 

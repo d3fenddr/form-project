@@ -30,7 +30,7 @@
                     <i class="ti ti-layout-sidebar-right text-primary fs-5"></i>
                 </button>
                 <button class="btn btn-outline-primary btn-sm" id="previewJsonBtn"><i class="ti ti-code"></i> JSON</button>
-                <button class="btn btn-primary btn-sm" id="saveTemplateBtn"><i class="ti ti-device-floppy"></i> Сохранить шаблон</button>
+                <button class="btn btn-primary btn-sm" id="diagramBtn"><i class="ti ti-chart-dots-3"></i> Диаграмма</button>
             </div>
         </header>
 
@@ -54,7 +54,7 @@
                                     <div class="accordion-body p-3 pt-2">
                                         <div class="d-flex flex-wrap gap-2">
                                             <button class="toolbox-icon-btn" data-field-type="string" data-bs-toggle="tooltip" title="Строка (Текст)"><i class="ti ti-typography text-primary"></i></button>
-                                            <button class="toolbox-icon-btn" data-field-type="number" data-bs-toggle="tooltip" title="Число"><i class="ti ti-math-123 text-success"></i></button>
+                                            <button class="toolbox-icon-btn" data-field-type="number" data-bs-toggle="tooltip" title="Число"><i class="ti ti-hash text-success"></i></button>
                                             <button class="toolbox-icon-btn" data-field-type="date" data-bs-toggle="tooltip" title="Дата"><i class="ti ti-calendar text-info"></i></button>
                                             <button class="toolbox-icon-btn" data-field-type="time" data-bs-toggle="tooltip" title="Время"><i class="ti ti-clock text-info"></i></button>
                                             <button class="toolbox-icon-btn" data-field-type="select" data-bs-toggle="tooltip" title="Список (Select)"><i class="ti ti-list text-warning"></i></button>
@@ -90,7 +90,10 @@
                 <main class="canvas-panel card mb-0 scrollable-panel">
                     <div class="card-body p-4">
                         <div class="rounded-4 p-4 canvas-paper">
-                            <h4 id="formTitleDisplay" class="mb-4 border-bottom pb-3 fw-bold text-body">Структура Формы</h4>
+                            <div class="d-flex align-items-center justify-content-between mb-4 border-bottom pb-3 gap-3">
+                                <h4 id="formTitleDisplay" class="mb-0 fw-bold text-body">Структура Формы</h4>
+                                <button class="btn btn-outline-secondary btn-sm" id="renameTemplateBtn"><i class="ti ti-edit"></i> Название</button>
+                            </div>
                             <div class="row sortable-container" id="mainFormContainer"></div>
                             <div class="text-center mt-5 text-secondary opacity-50" id="dragHint">
                                 <i class="ti ti-drag-drop fs-1"></i>
@@ -102,31 +105,34 @@
 
                 <aside class="tree-panel card mb-0" id="treeSidebar">
                     <div class="card-header bg-transparent border-bottom pt-3 pb-2">
-                        <h6 class="mb-0 fw-semibold">Структура объекта</h6>
-                        <small class="text-secondary">Кликните на элемент для редактирования</small>
+                        <h6 class="mb-0 fw-semibold" id="rightPanelTitle">Структура объекта</h6>
+                        <small class="text-secondary" id="rightPanelHint">Кликните на элемент для редактирования</small>
                     </div>
                     <div class="card-body p-3">
-                        <div id="treeViewContainer" class="schema-tree-container scrollable-panel"></div>
+                        <div id="treePanelContent" class="right-panel-content">
+                            <div id="treeViewContainer" class="schema-tree-container scrollable-panel"></div>
+                        </div>
 
-                        <div class="schema-diagram-section mt-3 pt-3 border-top">
-                            <div class="d-flex align-items-center justify-content-between mb-2">
-                                <h6 class="mb-0 fw-semibold">Диаграмма структуры</h6>
-                                <div class="btn-group btn-group-sm" role="group" aria-label="Управление масштабом диаграммы">
-                                    <button type="button" class="btn btn-light border" id="schemaDiagramZoomOut" title="Уменьшить">
-                                        <i class="ti ti-zoom-out"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-light border" id="schemaDiagramReset" title="Сбросить">
-                                        <i class="ti ti-focus-centered"></i>
-                                    </button>
-                                    <button type="button" class="btn btn-light border" id="schemaDiagramZoomIn" title="Увеличить">
-                                        <i class="ti ti-zoom-in"></i>
-                                    </button>
+                        <div id="diagramPanelContent" class="right-panel-content d-none">
+                            <div class="schema-diagram-section">
+                                <div class="d-flex align-items-center justify-content-end mb-2">
+                                    <div class="btn-group btn-group-sm" role="group" aria-label="Управление масштабом диаграммы">
+                                        <button type="button" class="btn btn-light border" id="schemaDiagramZoomOut" title="Уменьшить">
+                                            <i class="ti ti-zoom-out"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-light border" id="schemaDiagramReset" title="Сбросить">
+                                            <i class="ti ti-focus-centered"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-light border" id="schemaDiagramZoomIn" title="Увеличить">
+                                            <i class="ti ti-zoom-in"></i>
+                                        </button>
+                                    </div>
                                 </div>
+                                <div id="schemaDiagramViewport" class="schema-diagram-viewport">
+                                    <svg id="schemaDiagramSvg" class="schema-diagram-svg" aria-label="Диаграмма структуры формы"></svg>
+                                </div>
+                                <small class="text-secondary d-block mt-2">Колесо мыши — масштаб, зажатая ЛКМ — перемещение.</small>
                             </div>
-                            <div id="schemaDiagramViewport" class="schema-diagram-viewport">
-                                <svg id="schemaDiagramSvg" class="schema-diagram-svg" aria-label="Диаграмма структуры формы"></svg>
-                            </div>
-                            <small class="text-secondary d-block mt-2">Колесо мыши — масштаб, зажатая ЛКМ — перемещение.</small>
                         </div>
                     </div>
                 </aside>

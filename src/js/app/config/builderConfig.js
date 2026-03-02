@@ -7,7 +7,7 @@ const USER_SETTINGS = {
 
 const TYPE_STYLES = {
     string: { icon: 'ti-typography', color: 'primary' },
-    number: { icon: 'ti-math-123', color: 'success' },
+    number: { icon: 'ti-hash', color: 'success' },
     date: { icon: 'ti-calendar', color: 'info' },
     time: { icon: 'ti-clock', color: 'info' },
     select: { icon: 'ti-list', color: 'warning' },
@@ -25,8 +25,9 @@ const UI_SELECTORS = {
     treeSidebar: '#treeSidebar',
     toggleToolboxBtn: '#toggleToolboxBtn',
     toggleTreeBtn: '#toggleTreeBtn',
+    renameTemplateBtn: '#renameTemplateBtn',
     previewJsonBtn: '#previewJsonBtn',
-    saveTemplateBtn: '#saveTemplateBtn',
+    diagramBtn: '#diagramBtn',
     formTitleDisplay: '#formTitleDisplay',
     mainFormContainer: '#mainFormContainer',
     treeViewContainer: '#treeViewContainer',
@@ -42,18 +43,19 @@ const UI_SELECTORS = {
 };
 
 const SCHEMA_DIAGRAM_CONFIG = {
-    fitPadding: 0.2,
+    fitPadding: 0.12,
     minZoom: 0.25,
-    maxZoom: 4.0,
-    initialMinReadableZoom: 0.85,
-    wheelZoomStep: 1.14,
+    maxZoom: 8.0,
+    initialMinReadableZoom: 4,
+    wheelZoomStep: 1.25,
     buttonZoomStep: 1.2,
-    nodeWidth: 190,
-    nodeHeight: 78,
+    dragPanMultiplier: 5,
+    nodeWidth: 150,
+    nodeHeight: 75,
     titleFontSize: 13,
     metaFontSize: 11,
-    horizontalGap: 245,
-    verticalGap: 138,
+    horizontalGap: 200,
+    verticalGap: 100,
     marginX: 120,
     marginY: 78
 };

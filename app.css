@@ -324,22 +324,33 @@ body {
 }
 
 .schema-tree-container {
-    max-height: 38vh;
+    height: 100%;
+    max-height: none;
+}
+
+.right-panel-content {
+    height: 100%;
 }
 
 .schema-diagram-section {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
     min-height: 320px;
 }
 
 .schema-diagram-viewport {
-    height: 320px;
+    flex: 1;
+    min-height: 320px;
     border: 1px solid var(--builder-border);
     border-radius: 10px;
     background: #ffffff;
     overflow: hidden;
-    cursor: grab;
+    cursor: move;
     position: relative;
     touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .schema-diagram-viewport.dragging {
@@ -351,6 +362,13 @@ body {
     height: 100%;
     display: block;
     shape-rendering: geometricPrecision;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.schema-diagram-svg * {
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .schema-diagram-edge {
@@ -372,6 +390,10 @@ body {
 .schema-diagram-node .node-meta {
     fill: #64748b;
     font-size: 11px;
+}
+
+.schema-diagram-node text {
+    pointer-events: none;
 }
 
 .schema-diagram-node.node-root rect {
@@ -401,6 +423,10 @@ body {
 .schema-diagram-node.is-clickable:hover rect {
     stroke: var(--builder-accent);
     fill: #f8faff;
+}
+
+.schema-diagram-node.is-clickable {
+    cursor: pointer;
 }
 
 /* ── Modal settings sections ──────────────────────────── */
