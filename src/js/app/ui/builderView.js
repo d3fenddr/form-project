@@ -1,9 +1,81 @@
 import { TYPE_STYLES, UI_SELECTORS } from '../config/builderConfig.js';
-import { parseDOMContainer } from '../utils/schemaFields.js';
+import { parseDOMContainer, deepClone, findFieldByIdDeep, createFieldId } from '../utils/schemaFields.js';
 
 function createBuilderView({ getSchema, setSchema, onSchemaChange, onEdit, onDelete }) {
     let sortableInstances = [];
+    let toolboxSortables = [];
     let handlersBound = false;
+
+    function createDefaultFieldByType(type) {
+        const safeType = String(type || 'string');
+        const baseField = {
+            id: createFieldId(safeType),
+            type: safeType,
+            label: 'Новое поле',
+            col: 6,
+            required: false
+        };
+
+        if (safeType === 'complex') {
+            return {
+                ...baseField,
+                col: 12,
+                fields: []
+            };
+        }
+
+        if (safeType === 'select' || safeType === 'checkboxList') {
+            return {
+                ...baseField,
+                options: []
+            };
+        }
+
+        if (safeType === 'sys_dictionary') {
+            return {
+                ...baseField,
+                dictId: 'regions_dict'
+            };
+        }
+
+        if (safeType === 'sys_employee' || safeType === 'sys_org_tree') {
+            return {
+                ...baseField,
+                mode: 'single'
+            };
+        }
+
+        return baseField;
+    }
+
+    function insertFieldByDrop({ fieldType, parentId, dropIndex }) {
+        const currentSchema = getSchema();
+        const nextSchema = deepClone(currentSchema);
+        const nextField = createDefaultFieldByType(fieldType);
+
+        if (parentId) {
+            const parentField = findFieldByIdDeep(nextSchema.fields, parentId);
+            if (!parentField || parentField.type !== 'complex') {
+                return;
+            }
+
+            if (!Array.isArray(parentField.fields)) {
+                parentField.fields = [];
+            }
+
+            const safeIndex = Math.max(0, Math.min(dropIndex, parentField.fields.length));
+            parentField.fields.splice(safeIndex, 0, nextField);
+        } else {
+            const safeIndex = Math.max(0, Math.min(dropIndex, nextSchema.fields.length));
+            nextSchema.fields.splice(safeIndex, 0, nextField);
+        }
+
+        setSchema(nextSchema);
+        if (typeof onSchemaChange === 'function') {
+            onSchemaChange(nextSchema, 'add');
+        }
+        renderAll();
+    }
 
     function renderAll() {
         renderFormCanvas();
@@ -118,16 +190,57 @@ function createBuilderView({ getSchema, setSchema, onSchemaChange, onEdit, onDel
     function initSortable() {
         sortableInstances.forEach((inst) => inst.destroy());
         sortableInstances = [];
+        toolboxSortables.forEach((inst) => inst.destroy());
+        toolboxSortables = [];
+
+        const toolboxGroups = document.querySelectorAll('#toolboxAccordion .accordion-body .d-flex.flex-wrap.gap-2');
+        toolboxGroups.forEach((groupElement) => {
+            const toolboxInst = new Sortable(groupElement, {
+                group: {
+                    name: 'toolbox',
+                    pull: 'clone',
+                    put: false
+                },
+                sort: false,
+                animation: 120,
+                draggable: '.toolbox-icon-btn',
+                fallbackOnBody: true
+            });
+            toolboxSortables.push(toolboxInst);
+        });
 
         const containers = document.querySelectorAll('.sortable-container');
         containers.forEach((container) => {
             const inst = new Sortable(container, {
-                group: 'shared',
+                group: {
+                    name: 'shared',
+                    pull: true,
+                    put: ['shared', 'toolbox']
+                },
                 animation: 150,
                 ghostClass: 'sortable-ghost',
                 handle: '.drag-handle',
                 fallbackOnBody: true,
                 swapThreshold: 0.65,
+                onAdd(event) {
+                    const fromToolbox = event.from && event.from.closest('#toolboxAccordion');
+                    if (!fromToolbox) {
+                        return;
+                    }
+
+                    const droppedElement = event.item;
+                    const fieldType = droppedElement?.dataset?.fieldType;
+                    if (!fieldType) {
+                        droppedElement?.remove();
+                        return;
+                    }
+
+                    const parentId = event.to?.dataset?.parentId || null;
+                    const dropIndex = Number.isInteger(event.newIndex) ? event.newIndex : 0;
+
+                    droppedElement.remove();
+                    insertFieldByDrop({ fieldType, parentId, dropIndex });
+                },
                 onEnd() {
                     rebuildSchemaFromDOM();
                 }
@@ -178,6 +291,8 @@ function createBuilderView({ getSchema, setSchema, onSchemaChange, onEdit, onDel
     function dispose() {
         sortableInstances.forEach((inst) => inst.destroy());
         sortableInstances = [];
+        toolboxSortables.forEach((inst) => inst.destroy());
+        toolboxSortables = [];
     }
 
     return {

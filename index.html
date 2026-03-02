@@ -29,6 +29,7 @@
                 <button class="btn btn-sm btn-light border me-3" id="toggleTreeBtn" data-bs-toggle="tooltip" title="Дерево структуры">
                     <i class="ti ti-layout-sidebar-right text-primary fs-5"></i>
                 </button>
+                <button class="btn btn-outline-secondary btn-sm" id="templatesBtn"><i class="ti ti-files"></i> Шаблоны</button>
                 <button class="btn btn-outline-primary btn-sm" id="previewJsonBtn"><i class="ti ti-code"></i> JSON</button>
                 <button class="btn btn-primary btn-sm" id="diagramBtn"><i class="ti ti-chart-dots-3"></i> Диаграмма</button>
             </div>
@@ -92,7 +93,12 @@
                         <div class="rounded-4 p-4 canvas-paper">
                             <div class="d-flex align-items-center justify-content-between mb-4 border-bottom pb-3 gap-3">
                                 <h4 id="formTitleDisplay" class="mb-0 fw-bold text-body">Структура Формы</h4>
-                                <button class="btn btn-outline-secondary btn-sm" id="renameTemplateBtn"><i class="ti ti-edit"></i> Название</button>
+                                <button class="btn btn-outline-secondary btn-sm d-none" id="renameTemplateBtn"><i class="ti ti-edit"></i> Название</button>
+                            </div>
+                            <div id="noTemplateState" class="text-center py-5 d-none">
+                                <button class="btn btn-primary" id="createTemplatePageBtn">
+                                    <i class="ti ti-plus"></i> Создать новый шаблон
+                                </button>
                             </div>
                             <div class="row sortable-container" id="mainFormContainer"></div>
                             <div class="text-center mt-5 text-secondary opacity-50" id="dragHint">

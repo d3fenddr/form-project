@@ -2,9 +2,10 @@ import { USER_SETTINGS, UI_SELECTORS, createInitialSchema } from './app/config/b
 import { createBuilderView } from './app/ui/builderView.js';
 import { createFieldConfigModal } from './app/ui/fieldConfigModal.js';
 import { createSchemaDiagramWidget } from './app/ui/diagramView.js';
-import { showSchemaJsonPreview, confirmDeleteField, promptTemplateTitle } from './app/ui/builderActions.js';
+import { showSchemaJsonPreview, confirmDeleteField } from './app/ui/builderActions.js';
 import { findFieldByIdDeep } from './app/utils/schemaFields.js';
 import { applySettings, togglePanel } from './app/ui/layoutControls.js';
+import { createTemplateManager } from './app/templateManager.js';
 
 let formSchema = createInitialSchema();
 
@@ -86,8 +87,30 @@ $(document).ready(() => {
         onAfterSave: () => renderAllViews()
     });
 
+    const templateManager = createTemplateManager({
+        createInitialSchema,
+        getSchema,
+        setSchema,
+        renderAllViews
+    });
+
+    function syncTemplateEditingState() {
+        const hasActiveTemplate = templateManager.hasActiveTemplate();
+
+        $(UI_SELECTORS.noTemplateState).toggleClass('d-none', hasActiveTemplate);
+        $(UI_SELECTORS.mainFormContainer).toggleClass('d-none', !hasActiveTemplate);
+        $(UI_SELECTORS.dragHint).toggleClass('d-none', !hasActiveTemplate);
+        $(UI_SELECTORS.renameTemplateBtn).toggleClass('d-none', !hasActiveTemplate);
+
+        $(UI_SELECTORS.previewJsonBtn).prop('disabled', !hasActiveTemplate);
+        $(UI_SELECTORS.renameTemplateBtn).prop('disabled', !hasActiveTemplate);
+
+        $('.toolbox-icon-btn').prop('disabled', !hasActiveTemplate);
+    }
+
     function renderAllViews() {
         view.renderAll();
+        syncTemplateEditingState();
         if (rightPanelMode === 'diagram') {
             diagram.render();
         }
@@ -101,17 +124,11 @@ $(document).ready(() => {
 
     $(UI_SELECTORS.toggleToolboxBtn).on('click', () => togglePanel('sidebar'));
     $(UI_SELECTORS.toggleTreeBtn).on('click', () => togglePanel('tree'));
-    $(UI_SELECTORS.renameTemplateBtn).on('click', () => {
-        promptTemplateTitle(getSchema().title, (nextTitle) => {
-            setSchema({
-                ...getSchema(),
-                title: nextTitle
-            });
-            renderAllViews();
-        });
-    });
+    $(UI_SELECTORS.templatesBtn).on('click', () => templateManager.openManager());
+    $(UI_SELECTORS.createTemplatePageBtn).on('click', () => templateManager.createTemplate());
+    $(UI_SELECTORS.renameTemplateBtn).on('click', () => templateManager.renameCurrentTemplate());
 
-    $(UI_SELECTORS.previewJsonBtn).on('click', () => showSchemaJsonPreview(getSchema()));
+    $(UI_SELECTORS.previewJsonBtn).on('click', () => showSchemaJsonPreview(getSchema(), (schema) => templateManager.saveCurrentTemplate(schema)));
     $(UI_SELECTORS.diagramBtn).on('click', () => {
         setRightPanelMode(rightPanelMode === 'diagram' ? 'tree' : 'diagram');
     });
@@ -124,6 +141,7 @@ $(document).ready(() => {
     });
 
     view.bindContainerEvents();
+    templateManager.init();
     setRightPanelMode('tree');
     renderAllViews();
 });
