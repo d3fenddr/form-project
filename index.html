@@ -29,6 +29,7 @@
                 <button class="btn btn-sm btn-light border me-3" id="toggleTreeBtn" data-bs-toggle="tooltip" title="Дерево структуры">
                     <i class="ti ti-layout-sidebar-right text-primary fs-5"></i>
                 </button>
+                <button class="btn btn-outline-secondary btn-sm" id="toggleFormBuilderBtn"><i class="ti ti-layout"></i> FormBuilder: ON</button>
                 <button class="btn btn-outline-secondary btn-sm" id="templatesBtn"><i class="ti ti-files"></i> Шаблоны</button>
                 <button class="btn btn-outline-primary btn-sm" id="previewJsonBtn"><i class="ti ti-code"></i> JSON</button>
                 <button class="btn btn-primary btn-sm" id="diagramBtn"><i class="ti ti-chart-dots-3"></i> Диаграмма</button>
@@ -171,7 +172,11 @@
                                 <label class="form-label fw-medium">Заголовок (Label) <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="conf_label" required>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-6" id="conf_placeholder_wrap">
+                                <label class="form-label fw-medium">Placeholder</label>
+                                <input type="text" class="form-control" id="conf_placeholder" placeholder="Например: Введите значение">
+                            </div>
+                            <div class="col-md-3" id="conf_col_wrap">
                                 <label class="form-label fw-medium">Ширина (Колонка)</label>
                                 <select class="form-select" id="conf_col">
                                     <option value="12">col-12 (100%)</option>
@@ -181,7 +186,7 @@
                                     <option value="3">col-3 (25%)</option>
                                 </select>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label fw-medium">Каноническое поле</label>
                                 <select class="form-select" id="conf_canonical">
                                     <option value="">-- Не задано --</option>
@@ -190,7 +195,7 @@
                                     <option value="C_EMAIL">C_EMAIL (Email)</option>
                                 </select>
                             </div>
-                            <div class="col-md-4 d-flex align-items-end pb-1">
+                            <div class="col-md-3 d-flex align-items-end pb-1">
                                 <div class="form-check form-switch">
                                     <input class="form-check-input border-primary" type="checkbox" id="conf_required" role="switch">
                                     <label class="form-check-label fw-medium text-danger">Обязательное поле</label>
@@ -200,7 +205,7 @@
 
                         <h6 class="fw-bold mb-3 text-primary text-uppercase fs-2">Специфика: <span id="conf_type_display" class="badge bg-primary-subtle text-primary"></span></h6>
 
-                        <div class="row g-3 setting-section" data-types="string">
+                        <div class="row g-3 setting-section specific-inline-row" data-types="string">
                             <div class="col-md-4"><label class="form-label">Мин. длина</label><input type="number" class="form-control" id="conf_str_min"></div>
                             <div class="col-md-4"><label class="form-label">Макс. длина</label><input type="number" class="form-control" id="conf_str_max"></div>
                             <div class="col-md-4">
@@ -208,6 +213,18 @@
                                 <select class="form-select" id="conf_str_pattern">
                                     <option value="">Произвольный текст</option>
                                     <option value="email">Email</option>
+                                    <option value="tel">Телефон</option>
+                                    <option value="url">URL</option>
+                                    <option value="voen_az">VÖEN</option>
+                                    <option value="fin_az">FIN-код </option>
+                                    <option value="passport_az">Паспорт</option>
+                                    <option value="mobile_az">Мобильный номер (+994)</option>
+                                    <option value="iban_az">IBAN</option>
+                                    <option value="uuid">UUID</option>
+                                    <option value="numbers_only">Только цифры</option>
+                                    <option value="alphanumeric">Латиница + цифры</option>
+                                    <option value="latin">Только латиница</option>
+                                    <option value="azerbaijani_latin">Азербайджанская латиница</option>
                                     <option value="custom">Свой Regex</option>
                                 </select>
                             </div>
@@ -217,12 +234,12 @@
                             </div>
                         </div>
 
-                        <div class="row g-3 setting-section" data-types="number">
+                        <div class="row g-3 setting-section specific-inline-row" data-types="number">
                             <div class="col-md-6"><label class="form-label">Мин. значение</label><input type="number" class="form-control" id="conf_num_min"></div>
                             <div class="col-md-6"><label class="form-label">Макс. значение</label><input type="number" class="form-control" id="conf_num_max"></div>
                         </div>
 
-                        <div class="row g-3 setting-section" data-types="date,time">
+                        <div class="row g-3 setting-section specific-inline-row" data-types="date,time">
                             <div class="col-md-6"><label class="form-label">Мин. ограничение</label><input type="text" class="form-control" id="conf_datetime_min"></div>
                             <div class="col-md-6"><label class="form-label">Макс. ограничение</label><input type="text" class="form-control" id="conf_datetime_max"></div>
                         </div>
@@ -235,12 +252,14 @@
                             </div>
                         </div>
 
-                        <div class="row g-3 setting-section" data-types="sys_dictionary">
-                            <div class="col-12"><label class="form-label">Выбор словаря</label><select class="form-select" id="conf_sys_dict"><option value="regions_dict">Регионы</option><option value="status_dict">Статусы</option></select></div>
+                        <div class="row g-3 setting-section specific-inline-row" data-types="sys_dictionary">
+                            <div class="col-md-6"><label class="form-label">Выбор словаря</label><select class="form-select" id="conf_sys_dict"><option value="regions_dict">Регионы</option><option value="status_dict">Статусы</option></select></div>
+                            <div class="col-md-6"><label class="form-label">Режим выбора</label><select class="form-select" id="conf_sys_dict_mode"><option value="single">Один (Single)</option><option value="multiple">Несколько (Multiple)</option></select></div>
                         </div>
 
-                        <div class="row g-3 setting-section" data-types="sys_employee,sys_org_tree">
-                            <div class="col-12"><label class="form-label">Режим выбора</label><select class="form-select" id="conf_sys_mode"><option value="single">Один (Single)</option><option value="multiple">Несколько (Multiple)</option></select></div>
+                        <div class="row g-3 setting-section specific-inline-row" data-types="sys_employee,sys_org_tree">
+                            <div class="col-md-6"><label class="form-label">Режим выбора</label><select class="form-select" id="conf_sys_mode"><option value="single">Один (Single)</option><option value="multiple">Несколько (Multiple)</option></select></div>
+                            <div class="col-md-6"><label class="form-label">Источник</label><input type="text" class="form-control" id="conf_sys_source" placeholder="например: hrms"></div>
                         </div>
                     </form>
                 </div>

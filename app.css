@@ -332,6 +332,28 @@ body {
     height: 100%;
 }
 
+.tree-panel.formbuilder-replaced {
+    width: auto;
+    flex-grow: 1;
+}
+
+.tree-panel.formbuilder-replaced .card-body {
+    display: block;
+    min-height: 0;
+}
+
+.tree-panel.formbuilder-replaced .right-panel-content {
+    min-height: 0;
+    height: 100%;
+}
+
+.tree-panel.formbuilder-replaced .schema-tree-container,
+.tree-panel.formbuilder-replaced .schema-diagram-section,
+.tree-panel.formbuilder-replaced .schema-diagram-viewport {
+    min-height: 0;
+    height: 100%;
+}
+
 .schema-diagram-section {
     height: 100%;
     display: flex;
@@ -432,6 +454,23 @@ body {
 /* ── Modal settings sections ──────────────────────────── */
 .setting-section {
     display: none;
+}
+
+.specific-inline-row > [class*="col-"] {
+    display: block;
+}
+
+.specific-inline-row .form-label {
+    margin-bottom: 0.5rem;
+    white-space: normal;
+    min-width: 0;
+    font-weight: 500;
+}
+
+.specific-inline-row .form-control,
+.specific-inline-row .form-select {
+    min-width: 0;
+    width: 100%;
 }
 
 /* ── Responsive ───────────────────────────────────────── */

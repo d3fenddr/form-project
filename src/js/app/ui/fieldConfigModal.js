@@ -6,9 +6,23 @@ import {
     createFieldId
 } from '../utils/schemaFields.js';
 
-function createFieldConfigModal({ getSchema, setSchema, onAfterSave }) {
+function createFieldConfigModal({ getSchema, setSchema, isFormBuilderEnabled, onAfterSave }) {
     let modalInstance;
     let handlersBound = false;
+    const KNOWN_REGEX_PATTERNS = new Set([
+        'email', 'tel', 'url', 'voen_az', 'fin_az', 'passport_az', 'mobile_az', 'iban_az', 'uuid',
+        'numbers_only', 'alphanumeric', 'latin', 'azerbaijani_latin'
+    ]);
+
+    function isBuilderEnabled() {
+        return typeof isFormBuilderEnabled === 'function' ? Boolean(isFormBuilderEnabled()) : true;
+    }
+
+    function syncFormBuilderGlobalVisibility() {
+        const enabled = isBuilderEnabled();
+        $('#conf_placeholder_wrap').toggle(enabled);
+        $('#conf_col_wrap').toggle(enabled);
+    }
 
     function init() {
         modalInstance = new bootstrap.Modal(document.querySelector(UI_SELECTORS.fieldModal));
@@ -54,6 +68,7 @@ function createFieldConfigModal({ getSchema, setSchema, onAfterSave }) {
         document.querySelector(UI_SELECTORS.fieldForm).reset();
         $('#conf_type').val(type);
         $('#conf_type_display').text(type.toUpperCase());
+        syncFormBuilderGlobalVisibility();
 
         $('#conf_target_parent_id').val(targetParentId || '');
         $(UI_SELECTORS.optionsBuilderContainer).empty();
@@ -95,12 +110,15 @@ function createFieldConfigModal({ getSchema, setSchema, onAfterSave }) {
         $('#conf_label').val(field.label);
         $('#conf_col').val(field.col || 12);
         $('#conf_canonical').val(field.canonical || '');
+        $('#conf_placeholder').val(field.placeholder || '');
         $('#conf_required').prop('checked', field.required || false);
+        $('#conf_sys_source').val(field.source || '');
+        $('#conf_sys_dict_mode').val(field.mode || 'single');
 
         if (type === 'string') {
             $('#conf_str_min').val(field.minLength || '');
             $('#conf_str_max').val(field.maxLength || '');
-            if (field.pattern && field.pattern !== 'email' && field.pattern !== 'tel') {
+            if (field.pattern && !KNOWN_REGEX_PATTERNS.has(field.pattern)) {
                 $('#conf_str_pattern').val('custom').trigger('change');
                 $('#conf_str_custom_regex').val(field.pattern);
             } else {
@@ -140,6 +158,9 @@ function createFieldConfigModal({ getSchema, setSchema, onAfterSave }) {
         $('#conf_original_id').val('');
         $('#fieldModalTitle').html('<i class="ti ti-plus text-primary me-2"></i>Добавление поля');
         $('#conf_id').val(createFieldId('field'));
+        $('#conf_placeholder').val('');
+        $('#conf_sys_source').val('');
+        $('#conf_sys_dict_mode').val('single');
     }
 
     function saveFieldFromModal() {
@@ -180,13 +201,17 @@ function createFieldConfigModal({ getSchema, setSchema, onAfterSave }) {
     }
 
     function collectFieldData(mode, type, originalId, schemaFields) {
+        const enabled = isBuilderEnabled();
         const fieldData = {
             id: $('#conf_id').val(),
             type,
             label: $('#conf_label').val(),
-            col: parseInt($('#conf_col').val(), 10),
+            col: enabled ? parseInt($('#conf_col').val(), 10) : 12,
             required: $('#conf_required').is(':checked')
         };
+        if (enabled) {
+            fieldData.placeholder = $('#conf_placeholder').val();
+        }
 
         if ($('#conf_canonical').val()) {
             fieldData.canonical = $('#conf_canonical').val();
@@ -242,11 +267,13 @@ function createFieldConfigModal({ getSchema, setSchema, onAfterSave }) {
 
         if (type === 'sys_dictionary') {
             fieldData.dictId = $('#conf_sys_dict').val();
+            fieldData.mode = $('#conf_sys_dict_mode').val();
             return fieldData;
         }
 
         if (type === 'sys_employee' || type === 'sys_org_tree') {
             fieldData.mode = $('#conf_sys_mode').val();
+            fieldData.source = $('#conf_sys_source').val();
         }
 
         return fieldData;

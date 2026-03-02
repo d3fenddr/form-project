@@ -140,7 +140,7 @@ function createBuilderView({ getSchema, setSchema, onSchemaChange, onEdit, onDel
             } else {
                 inputHtml = `
                     <label class="form-label fw-semibold text-${style.color}"><i class="ti ${style.icon}"></i> ${field.label}</label>
-                    <input type="text" class="form-control bg-body-tertiary" placeholder="${field.type} field..." disabled>
+                    <input type="text" class="form-control bg-body-tertiary" placeholder="${field.placeholder || `${field.type} field...`}" disabled>
                 `;
             }
 
